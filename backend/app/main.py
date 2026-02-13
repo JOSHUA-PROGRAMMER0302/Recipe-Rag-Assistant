@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body, HTTPException, Depends
+from fastapi import FastAPI, Body, HTTPException, Depends, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import json
@@ -105,15 +105,26 @@ def get_recipe_by_id(rid: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+_COMPRESSED_INDEX_CACHE: Optional[Dict[str, Any]] = None
+
+
 def load_compressed_index() -> Dict[str, Any]:
+    global _COMPRESSED_INDEX_CACHE
+    cache = _COMPRESSED_INDEX_CACHE
+    if cache is not None:
+        return cache
     base = _data_dir()
     path = os.path.join(base, 'compressed_index.json')
     if not os.path.exists(path):
         path = os.path.join(base, 'compressed_index.json')
     if not os.path.exists(path):
-        return {'count': 0, 'entries': []}
+        empty = {'count': 0, 'entries': []}
+        _COMPRESSED_INDEX_CACHE = empty
+        return empty
     with open(path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        data = json.load(f)
+        _COMPRESSED_INDEX_CACHE = data
+        return data
 
 
 @app.get("/health")
@@ -223,10 +234,10 @@ def grocery(req: GroceryRequest = Body(...)):
             continue
         for ing in r.get('ingredients', []):
             if isinstance(ing, dict):
-                name = ing.get('name') or ing.get('raw')
+                name = ing.get('name') or ing.get('raw') or ''
                 qty = ing.get('quantity')
                 unit = ing.get('unit')
-                key = name.strip().lower()
+                key = str(name).strip().lower()
                 if key not in items:
                     items[key] = {'name': name, 'quantity': qty or 0, 'unit': unit}
                 else:
@@ -245,9 +256,29 @@ def grocery(req: GroceryRequest = Body(...)):
 
 
 @app.get('/compress-status')
-def compress_status():
+def compress_status(limit: Optional[int] = None, ids: Optional[List[str]] = Query(default=None)):
     idx = load_compressed_index()
     total = idx.get('count', 0)
+    all_entries = idx.get('entries', [])
+    saved_total = sum(
+        (e.get('orig_len') or 0) - (e.get('compressed_len') or 0)
+        for e in all_entries
+        if e.get('orig_len')
+    )
+
+    entries = all_entries
+    if ids:
+        wanted = {str(i) for i in ids}
+        entries = [e for e in entries if str(e.get('id')) in wanted]
+    elif limit is not None:
+        limit = max(0, min(5000, int(limit)))
+        entries = entries[:limit]
+    return {'count': total, 'entries': entries, 'bytes_saved': saved_total}
+
+
+@app.get('/compress-status/summary')
+def compress_status_summary():
+    idx = load_compressed_index()
     entries = idx.get('entries', [])
     saved = sum((e.get('orig_len') or 0) - (e.get('compressed_len') or 0) for e in entries if e.get('orig_len'))
-    return {'count': total, 'entries': entries, 'bytes_saved': saved}
+    return {'count': idx.get('count', 0), 'bytes_saved': saved}

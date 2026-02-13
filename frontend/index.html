@@ -42,17 +42,33 @@
       let compressedSet = new Set()
       let compMap = {} // id -> entry
 
-      async function loadCompressStatus(){
+      async function loadCompressSummary(){
         try{
-          const res = await fetch(`${API_BASE}/compress-status`)
+          const res = await fetch(`${API_BASE}/compress-status/summary`)
           if(!res.ok) throw new Error('status '+res.status)
           const data = await res.json()
           const count = data.count || 0
           const bytes = data.bytes_saved || 0
           compressSummary.innerText = `Compressed recipes: ${count} · Bytes saved: ${bytes}`
-          (data.entries || []).forEach(e=>{ if(e && e.id){ compressedSet.add(String(e.id)); compMap[String(e.id)] = e } })
         }catch(err){
           compressSummary.innerText = 'Compression status unavailable'
+        }
+      }
+
+      async function loadCompressEntriesFor(recipeIds){
+        compressedSet = new Set()
+        compMap = {}
+        const ids = (recipeIds || []).filter(Boolean).map(String)
+        if(ids.length === 0) return
+        try{
+          const params = new URLSearchParams()
+          ids.forEach(id => params.append('ids', id))
+          const res = await fetch(`${API_BASE}/compress-status?${params.toString()}`)
+          if(!res.ok) throw new Error('status '+res.status)
+          const data = await res.json()
+          ;(data.entries || []).forEach(e=>{ if(e && e.id){ compressedSet.add(String(e.id)); compMap[String(e.id)] = e } })
+        }catch(err){
+          // keep empty set/map; cards just won't show compression badges
         }
       }
 
@@ -65,6 +81,9 @@
           const data = await res.json()
           const list = Array.isArray(data) ? data : (data.recipes || [])
           if(!list || list.length === 0){ results.innerHTML = '<div class="p-4 bg-white rounded shadow text-gray-500">No results</div>'; return }
+
+          await loadCompressEntriesFor(list.map(r => r && r.id))
+
           results.innerHTML = ''
           for(const r of list){
             const card = document.createElement('a')
@@ -105,7 +124,7 @@
       }
 
       // init
-      loadCompressStatus()
+      loadCompressSummary()
       searchBtn.addEventListener('click', doSearch)
       qInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') doSearch() })
     </script>

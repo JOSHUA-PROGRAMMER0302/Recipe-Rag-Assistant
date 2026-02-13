@@ -42,7 +42,7 @@
       const API_BASE = window.API_BASE || 'http://localhost:8000'
 
       async function refresh() {
-        const res = await fetch(`${API_BASE}/compress-status`)
+        const res = await fetch(`${API_BASE}/compress-status?limit=50`)
         const data = await res.json()
         statusArea.innerHTML = ''
         statusArea.innerHTML += `<div><strong>Total compressed:</strong> ${data.count}</div>`
@@ -51,7 +51,7 @@
           statusArea.innerHTML += '<h4 class="mt-3 font-medium">Entries</h4>'
           const list = document.createElement('ul')
           list.className = 'mt-2 space-y-1 text-sm'
-          data.entries.slice(0,50).forEach(e => {
+          data.entries.forEach(e => {
             const li = document.createElement('li')
             li.className = 'p-1 border rounded'
             li.textContent = `${e.id} — method=${e.method} orig=${e.orig_len || 'n/a'} comp=${e.compressed_len || 'n/a'}`
