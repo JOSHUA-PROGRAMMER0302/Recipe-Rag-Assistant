@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recipe - Recipe Rag Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="api_base.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow">
+      <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Recipe</h1>
+        <nav class="space-x-3">
+          <a href="index.html" class="text-blue-600">Search</a>
+          <a href="planner.html" class="text-blue-600">Planner</a>
+          <a href="dashboard.html" class="text-blue-600">Dashboard</a>
+        </nav>
+      </div>
+    </header>
+    <main class="max-w-4xl mx-auto p-4">
+      <article id="recipeCard" class="bg-white p-6 rounded shadow">
+        <h2 id="title" class="text-2xl font-bold"></h2>
+        <div id="meta" class="mt-2 text-sm text-gray-600"></div>
+        <div id="video" class="mt-4"></div>
+        <section class="mt-4">
+          <h3 class="font-semibold">Ingredients</h3>
+          <ul id="ingredients" class="list-disc list-inside mt-2 text-gray-800"></ul>
+        </section>
+        <section class="mt-4">
+          <h3 class="font-semibold">Steps</h3>
+          <ol id="steps" class="list-decimal list-inside mt-2 text-gray-800"></ol>
+        </section>
+        <section id="nutritionSec" class="mt-4 hidden">
+          <h3 class="font-semibold">Nutrition</h3>
+          <pre id="nutrition" class="mt-2 text-sm text-gray-700"></pre>
+        </section>
+        <section id="compressionSec" class="mt-4 hidden text-sm text-gray-600"></section>
+      </article>
+    </main>
+
+    <script>
+      function getQueryParam(name){
+        const params = new URLSearchParams(window.location.search)
+        return params.get(name)
+      }
+
+      function extractYouTubeId(url){
+        if(!url) return null
+        try{
+          const u = new URL(url)
+          if(u.hostname.includes('youtube.com')){
+            return u.searchParams.get('v')
+          }
+          if(u.hostname === 'youtu.be'){
+            return u.pathname.slice(1)
+          }
+        }catch(e){return null}
+        return null
+      }
+
+      const API_BASE = window.API_BASE || 'http://localhost:8000'
+
+      async function loadRecipe(){
+        const id = getQueryParam('id')
+        if(!id){ document.getElementById('title').innerText = 'No recipe id provided'; return }
+        const res = await fetch(`${API_BASE}/recipe/${encodeURIComponent(id)}`)
+        if(!res.ok){ document.getElementById('title').innerText = 'Recipe not found'; return }
+        const data = await res.json()
+        const r = data.recipe
+        document.getElementById('title').innerText = r.title || 'Untitled'
+        document.getElementById('meta').innerText = r.source_url ? ('Source: ' + r.source_url) : ''
+        // video embed
+        const vid = extractYouTubeId(r.source_url)
+        if(vid){
+          document.getElementById('video').innerHTML = `<div class="w-full aspect-video"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${vid}" frameborder="0" allowfullscreen></iframe></div>`
+        }
+
+        const ingsEl = document.getElementById('ingredients')
+        ingsEl.innerHTML = ''
+        for(const ing of r.ingredients || []){
+          const li = document.createElement('li')
+          li.textContent = (typeof ing === 'string') ? ing : (ing.raw || ing.name || JSON.stringify(ing))
+          ingsEl.appendChild(li)
+        }
+
+        const stepsEl = document.getElementById('steps')
+        stepsEl.innerHTML = ''
+        for(const s of r.steps || []){
+          const li = document.createElement('li')
+          li.textContent = s
+          stepsEl.appendChild(li)
+        }
+
+        if(r.nutrition && Object.keys(r.nutrition).length){
+          document.getElementById('nutritionSec').classList.remove('hidden')
+          document.getElementById('nutrition').innerText = JSON.stringify(r.nutrition, null, 2)
+        }
+
+        if(data.compression){
+          const comp = data.compression
+          const cs = document.getElementById('compressionSec')
+          cs.classList.remove('hidden')
+          cs.innerText = `Compression: method=${comp.method || 'n/a'} orig=${comp.orig_len || 'n/a'} comp=${comp.compressed_len || 'n/a'}`
+        }
+      }
+
+      loadRecipe()
+    </script>
+  </body>
+</html>

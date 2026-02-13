@@ -12,9 +12,9 @@
         <div class="flex items-center justify-between">
           <h1 class="text-2xl font-bold text-gray-900">Recipe Rag Assistant</h1>
           <nav class="space-x-3 text-sm">
-            <a href="/frontend/index.html" class="text-blue-600">Search</a>
-            <a href="/frontend/planner.html" class="text-blue-600">Planner</a>
-            <a href="/frontend/dashboard.html" class="text-blue-600">Dashboard</a>
+            <a href="index.html" class="text-blue-600">Search</a>
+            <a href="planner.html" class="text-blue-600">Planner</a>
+            <a href="dashboard.html" class="text-blue-600">Dashboard</a>
           </nav>
         </div>
         <div id="compressSummary" class="mt-3 text-sm text-gray-600">Loading compression status…</div>
@@ -31,6 +31,7 @@
       </section>
     </main>
 
+    <script src="api_base.js"></script>
     <script>
       const API_BASE = window.API_BASE || 'http://localhost:8000'
       const qInput = document.getElementById('q')
@@ -67,7 +68,7 @@
           results.innerHTML = ''
           for(const r of list){
             const card = document.createElement('a')
-            card.href = `/frontend/recipe.html?id=${encodeURIComponent(r.id)}`
+            card.href = `recipe.html?id=${encodeURIComponent(r.id)}`
             card.className = 'block bg-white p-4 rounded-lg shadow hover:shadow-md transition flex gap-4 items-start'
             const left = document.createElement('div')
             left.className = 'w-14 h-14 bg-gray-100 rounded flex items-center justify-center text-gray-400'

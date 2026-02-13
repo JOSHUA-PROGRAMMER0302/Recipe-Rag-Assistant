@@ -12,11 +12,13 @@ node_modules/
 backend/.env
 data/recipes.json
 data/recipes_raw/
+data/1_Recipe_csv.csv
 /.history
 dist/
 build/
 coverage/
 *.sqlite3
+*.db
 /.vscode/
 # Byte-compiled / optimized / DLL files
 __pycache__/

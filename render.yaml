@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: recipe-rag-assistant-api
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      # Optional: set a persistent database instead of ephemeral SQLite
+      # - key: DATABASE_URL
+      #   value: postgresql://...

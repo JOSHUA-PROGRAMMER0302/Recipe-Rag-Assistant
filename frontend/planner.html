@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Meal Planner - Recipe Rag Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="api_base.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <header class="bg-white shadow">
+      <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Meal Planner</h1>
+        <nav class="space-x-3">
+          <a href="index.html" class="text-blue-600">Search</a>
+          <a href="planner.html" class="text-blue-600">Planner</a>
+          <a href="dashboard.html" class="text-blue-600">Dashboard</a>
+        </nav>
+      </div>
+    </header>
+    <main class="max-w-4xl mx-auto p-4">
+      <section class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold">Create Meal Plan</h2>
+        <div class="mt-3 grid grid-cols-1 gap-3">
+          <label>Days (1-14)
+            <input id="days" type="number" min="1" max="14" value="7" class="w-full mt-1 p-2 border rounded" />
+          </label>
+          <label>Calorie target (optional)
+            <input id="calories" type="number" class="w-full mt-1 p-2 border rounded" />
+          </label>
+          <label>Dietary restrictions (comma-separated keywords)
+            <input id="restrictions" placeholder="e.g. dairy, nuts, shellfish" class="w-full mt-1 p-2 border rounded" />
+          </label>
+          <div>
+            <button id="genBtn" class="px-4 py-2 bg-green-600 text-white rounded">Generate Plan</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-6 bg-white p-4 rounded shadow">
+        <h3 class="font-semibold">Plan</h3>
+        <div id="planArea" class="mt-3 space-y-2 text-sm text-gray-700"></div>
+        <div class="mt-3">
+          <button id="groceryBtn" class="px-3 py-2 bg-blue-600 text-white rounded">Generate Grocery List for Plan</button>
+        </div>
+        <div id="groceryArea" class="mt-4"></div>
+      </section>
+    </main>
+
+    <script>
+      const API_BASE = window.API_BASE || 'http://localhost:8000'
+      const genBtn = document.getElementById('genBtn')
+      const groceryBtn = document.getElementById('groceryBtn')
+      const planArea = document.getElementById('planArea')
+      const groceryArea = document.getElementById('groceryArea')
+      let currentPlanIds = []
+
+      genBtn.addEventListener('click', async () => {
+        const days = Number(document.getElementById('days').value || 7)
+        const calories = Number(document.getElementById('calories').value || 0) || undefined
+        const restrictionsRaw = document.getElementById('restrictions').value || ''
+        const restrictions = restrictionsRaw.split(',').map(s => s.trim()).filter(Boolean)
+        const body = { days, calorie_target: calories, dietary_restrictions: restrictions }
+        planArea.innerHTML = '<div class="text-gray-500">Generating plan…</div>'
+        try {
+          const res = await fetch(`${API_BASE}/mealplan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+          if (!res.ok) {
+            const text = await res.text()
+            planArea.innerHTML = `<div class="text-red-600">Error: ${res.status} ${res.statusText} - ${text}</div>`
+            return
+          }
+          const data = await res.json()
+          planArea.innerHTML = ''
+          if (data.plan && data.plan.length) {
+            currentPlanIds = []
+            for (const p of data.plan) {
+              currentPlanIds.push(p.recipe_id)
+              const div = document.createElement('div')
+              div.className = 'p-2 border rounded flex justify-between items-center'
+              const href = `recipe.html?id=${encodeURIComponent(p.recipe_id)}`
+              div.innerHTML = `<div><strong>Day ${p.day}:</strong> ${p.title}</div><div><a href="${href}" data-id="${p.recipe_id}" class="px-2 py-1 text-sm bg-gray-100 rounded">View</a></div>`
+              planArea.appendChild(div)
+            }
+          } else {
+            planArea.innerText = 'No plan generated.'
+          }
+        } catch (err) {
+          planArea.innerHTML = `<div class="text-red-600">Error: ${err.message}</div>`
+        }
+      })
+
+      groceryBtn.addEventListener('click', async () => {
+        const ids = currentPlanIds.slice()
+        if (!ids.length) { groceryArea.innerText = 'No recipes selected.'; return }
+        groceryArea.innerHTML = '<div class="text-gray-500">Generating grocery list…</div>'
+        try {
+          const res = await fetch(`${API_BASE}/grocery`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipe_ids: ids }) })
+          if (!res.ok) {
+            const text = await res.text()
+            groceryArea.innerHTML = `<div class="text-red-600">Error: ${res.status} ${res.statusText} - ${text}</div>`
+            return
+          }
+          const data = await res.json()
+          groceryArea.innerHTML = '<h4 class="font-medium">Grocery List</h4>' + '<ul class="mt-2 space-y-1">' + (data.grocery || []).map(i => `<li class="p-1 border rounded">${i.name} ${i.quantity?` - ${i.quantity} ${i.unit||''}`:''}</li>`).join('') + '</ul>'
+        } catch (err) {
+          groceryArea.innerHTML = `<div class="text-red-600">Error: ${err.message}</div>`
+        }
+      })
+    </script>
+  </body>
+</html>
